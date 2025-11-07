@@ -9,6 +9,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import PlayerController from "./PlayerController/PlayerController";
 
 interface DispatcherDetailsProps {
   dispatcher: Dispatcher;
@@ -129,6 +130,7 @@ const DispatcherDetails = ({ dispatcher }: DispatcherDetailsProps) => {
                     className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                   >
                     <p className="text-sm font-medium">{filename}</p>
+                    <PlayerController transcriptionId={filename.slice(0, -4)} />
                   </li>
                 ))}
               </ul>

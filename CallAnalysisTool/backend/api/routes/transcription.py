@@ -248,8 +248,29 @@ def serve_audio(filename):
     
     Args:
         filename: Path to the audio file relative to output directory
+        Example: "20251017_123101_bjones/20251017_123101_bjones.wav"
     
     Returns:
         Audio file response
     """
-    return send_from_directory(str(OUTPUT_DIR), filename)
+    print(f"Serving audio file: {filename}")
+    
+    # Convert to absolute path
+    output_dir = OUTPUT_DIR.resolve()
+    
+    # Split the filename into directory and file parts
+    # filename is like "20251017_123101_bjones/20251017_123101_bjones.wav"
+    path_parts = filename.split('/')
+    
+    if len(path_parts) > 1:
+        # Has subdirectory: "20251017_123101_bjones/20251017_123101_bjones.wav"
+        subdir = '/'.join(path_parts[:-1])  # "20251017_123101_bjones"
+        file_name = path_parts[-1]  # "20251017_123101_bjones.wav"
+        file_dir = output_dir / subdir
+    else:
+        # Just a filename
+        file_name = filename
+        file_dir = output_dir
+    
+    # Use send_from_directory with the directory and filename
+    return send_from_directory(str(file_dir), file_name)

@@ -1,0 +1,17 @@
+.presentation_header{
+    padding-top: 24px;
+    padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.presentation{
+    padding: 20px 50px 0px 50px;
+    width: 750px;
+    height: 500px;
+    border-style: solid solid none solid;
+    border-color: black;
+    border-width: 1px 1px 0 1px; 
+    border-radius: 10px 10px 0 0;
+}
+    
