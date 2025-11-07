@@ -16,7 +16,7 @@ import argparse
 class TranscriptionConfig:
     """Configuration for WhisperX transcription"""
     implementation: str = "whisperx"
-    model_size: str = "base"
+    model_size: str = "large-v3"
     beam_size: int = 5
     best_of: int = 5
     temperature: float = 0.0
@@ -287,9 +287,9 @@ Examples:
                         help='Audio file(s) or directory containing .wav files')
     parser.add_argument('--output-dir', '-o',
                         help='Output directory for JSON files (default: same as input)')
-    parser.add_argument('--model', default='base',
+    parser.add_argument('--model', default='large-v3',
                         choices=['tiny', 'base', 'small', 'medium', 'large', 'large-v2', 'large-v3'],
-                        help='WhisperX model size (default: base)')
+                        help='WhisperX model size (default: large-v3)')
     parser.add_argument('--language', default='en',
                         help='Language code (default: en)')
     parser.add_argument('--no-word-timestamps', action='store_true',

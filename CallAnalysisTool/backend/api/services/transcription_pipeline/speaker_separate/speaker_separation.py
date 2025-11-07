@@ -6,10 +6,11 @@ USAGE:
 
     Arguments:
         audio_file.wav     - WAV audio file of emergency call
-        transcription.json - WhisperX transcription JSON output
+        transcription.json - WhisperX transcription JSON output with naming convention: YYYYMMDD_HHMMSS_dispatchername.json
 
     Output:
-        Creates combined_transcript_<basename>.json in ../test-json/speaker-separated/ directory
+        Creates <audio_basename>.json in the same directory as the input JSON file
+        Output format includes date, time, dispatcher name extracted from input filename
 
 REQUIREMENTS:
     - Python 3.7+
@@ -137,10 +138,8 @@ def classify_speakers(segment_analysis):
 
     if questions_a >= questions_b:
         dispatcher_group = 'A'
-        caller_group = 'B'
     else:
         dispatcher_group = 'B'
-        caller_group = 'A'
 
     for segment in segment_analysis:
         segment['_predicted_speaker'] = 'dispatcher' if segment['_acoustic_group'] == dispatcher_group else 'caller'
@@ -188,47 +187,94 @@ def kmeans_clustering(data, k=2, max_iters=100):
 
     return labels, centroids
 
-def create_combined_transcript(speaker_segments, audio_basename, output_path):
+def extract_dispatcher_name(json_filename):
     """
-    Formats and saves the final speaker-separated transcript as JSON.
+    Extracts the dispatcher name from the JSON filename.
+    Expected format: YYYYMMDD_HHMMSS_dispatchername.json
+
+    Args:
+        json_filename(str): The JSON filename.
+    Returns:
+        The dispatcher name extracted from the filename.
+    """
+    basename = os.path.splitext(os.path.basename(json_filename))[0]
+    parts = basename.split('_')
+    if len(parts) >= 3:
+        date_part = parts[0]
+        time_part = parts[1]
+        dispatcher_name = '_'.join(parts[2:])  
+        return date_part, time_part, dispatcher_name
+    else:
+        return "unknown", "unknown", "dispatcher"
+
+def create_combined_transcript(speaker_segments, audio_basename, json_filename, output_path=None):
+    """
+    Formats and saves the final speaker-separated transcript as JSON in the new format.
 
     Args:
         speaker_segments(dict): A dictionary containing the list of dispatcher and caller segments.
-        audio_basename(str):    The base name of the audio file. This is used to name the output file.
+        audio_basename(str):    The base name of the audio file (without extension). This is used to name the output file.
+        json_filename(str):     The input JSON filename to extract dispatcher info from.
+        output_path(str):       Optional full path for output file. If None, uses directory from json_filename.
     Returns:
-        Saves the final speaker-separated transcript as JSON in the server/output directory.
+        Saves the final speaker-separated transcript as <audio_basename>.json in the specified directory.
     """
-    os.makedirs(output_path, exist_ok=True)
+    if output_path is None:
+        output_dir = os.path.dirname(json_filename)
+        if not output_dir:
+            output_dir = "."
+        output_file = os.path.join(output_dir, f"{audio_basename}.json")
+    else:
+        output_file = output_path
+
+    date_str, time_str, dispatcher_name = extract_dispatcher_name(json_filename)
 
     all_segments = []
     for speaker, segments in speaker_segments.items():
+        speaker_label = dispatcher_name if speaker == 'dispatcher' else 'caller'
         for segment in segments:
             all_segments.append({
-                'speaker': speaker, 'start': segment['start'],
+                'speaker': speaker_label, 'start': segment['start'],
                 'end': segment['end'], 'text': segment['text']
             })
 
     all_segments.sort(key=lambda x: x['start'])
 
     transcript_data = {
+        'date': int(date_str) if date_str.isdigit() else 0,
+        'time': int(time_str) if time_str.isdigit() else 0,
         'total_segments': len(all_segments),
-        'speakers': ['dispatcher', 'caller'],
+        'speakers': [dispatcher_name, 'caller'],
         'segments': all_segments
     }
 
-    with open(os.path.join(output_path, f"combined_transcript_{audio_basename}.json"), 'w', encoding='utf-8') as f:
+    with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(transcript_data, f, indent=2, ensure_ascii=False)
 
-def speaker_seperation(audio_file, json_file, output_path) :
-    if not os.path.exists(audio_file) or not os.path.exists(json_file):
-        print("Error: File not found")
-        return
+def speaker_separation(audio_file, transcription_file, output_dir):
+    """
+    Main function to perform speaker separation on audio and transcription data.
+
+    Args:
+        audio_file (str): Path to the audio file (.wav)
+        transcription_file (str): Path to the WhisperX transcription JSON file
+        output_dir (str): Directory where the output should be saved
+    """
+    if not os.path.exists(audio_file) or not os.path.exists(transcription_file):
+        raise FileNotFoundError("Audio file or transcription file not found")
+
     mfccs, sr = extract_mfcc_features(audio_file)
-    segments = load_whisperx_transcription(json_file)
+    segments = load_whisperx_transcription(transcription_file)
     segment_analysis = analyze_mfcc_segments(mfccs, segments, sr)
     speaker_segments = classify_speakers(segment_analysis)
 
-    create_combined_transcript(speaker_segments, os.path.splitext(os.path.basename(audio_file))[0], output_path)
+    # Create output filename based on audio file basename
+    audio_basename = os.path.splitext(os.path.basename(audio_file))[0]
+
+    # Use the output_dir and create the combined transcript there
+    output_path = os.path.join(str(output_dir), f"{audio_basename}.json")
+    create_combined_transcript(speaker_segments, audio_basename, transcription_file, output_path)
+
 
 def main():
     if len(sys.argv) < 3:
@@ -245,7 +291,7 @@ def main():
     segment_analysis = analyze_mfcc_segments(mfccs, segments, sr)
     speaker_segments = classify_speakers(segment_analysis)
 
-    create_combined_transcript(speaker_segments, os.path.splitext(os.path.basename(audio_file))[0])
+    create_combined_transcript(speaker_segments, os.path.splitext(os.path.basename(audio_file))[0], json_file)
 
 if __name__ == "__main__":
     main()

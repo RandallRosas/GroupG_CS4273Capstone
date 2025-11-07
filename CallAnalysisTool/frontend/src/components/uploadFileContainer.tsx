@@ -152,7 +152,7 @@ const UploadFileContainer = () => {
         // ##################################################################################
         // ###############            UPDATE LOCAL STORAGE              ##########################
         // ##################################################################################
-        const transcriptFilename = `combined_transcript_${foldername}.json`; // foldername from earlier transcription step
+        const transcriptFilename = `${foldername}.json`; // foldername from earlier transcription step
         const dispatcherName = foldername.split("_")[2] || "Unknown"; // from YYYYMMDD_HHMMSS_dispatcher
 
         // Create/update dispatcher in localStorage

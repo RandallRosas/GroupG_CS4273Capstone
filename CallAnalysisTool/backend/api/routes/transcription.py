@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 from api.services.transcription_pipeline.transcription.whisperx_transcriber import TranscriptionConfig, transcribe_to_json, WhisperXTranscriber
-from api.services.transcription_pipeline.speaker_separate.speaker_separation import speaker_seperation
+from api.services.transcription_pipeline.speaker_separate.speaker_separation import speaker_separation
 from api.services.transcription_pipeline.zip_processor import process_zip
 
 
@@ -131,7 +131,7 @@ def transcribe_audio():
         # ######################### Speaker Separation #########################
         
         print('### Separating Speaker: ((transcription).json -> (transcription w/ separated speakers).json ###')
-        speaker_seperation(str(audio_file), transcription_file, file_path)
+        speaker_separation(str(audio_file), transcription_file, file_path)
         os.remove(transcription_file)  # Removes old transcription file since new separated speakers transcription file is created
         print('### Finished Transcription Pipeline(Single): (transcription w/ separated speakers).json ###')
 
@@ -139,7 +139,7 @@ def transcribe_audio():
         return jsonify({
             'message': f'Finished transcription pipeline for: {file.filename}',
             'foldername': folder_name,
-            'file_path': f"output/{folder_name}/combined_transcript_{folder_name}.json"
+            'file_path': f"output/{folder_name}/{folder_name}.json"
         })
         
     except Exception as e:
@@ -166,11 +166,11 @@ def transcriptions_list():
                 with open(file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
 
-                og_name = file.name.replace("combined_transcript_", "")
+                og_name = file.name.replace(".json", "")
                 name = og_name.split('_')
                 date = name[0]
                 timestamp = name[1]
-                dispatcher = name[2][:-5]  # Remove .json
+                dispatcher = '_'.join(name[2:])  # Join remaining parts for dispatcher name
 
                 formatted_date = f"{date[:4]}/{date[4:6]}/{date[6:8]}"
                 formatted_time = f"{timestamp[:2]}:{timestamp[2:4]}:{timestamp[4:6]}"
@@ -217,7 +217,7 @@ def get_transcription_by_filename(filename):
     """
     try:
         # Look for the file in output directory
-        file_path = OUTPUT_DIR / filename / f"combined_transcript_{filename}.json"
+        file_path = OUTPUT_DIR / filename / f"{filename}.json"
         audio_file = f"{filename}/{filename}.wav"
         print(file_path)
         
