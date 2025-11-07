@@ -16,6 +16,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from api.routes.grading import grading_bp
 from api.routes.health import health_bp
+from api.routes.transcription import transcription_bp, initialize_transcriber
 
 def create_app():
     """Application factory pattern"""
@@ -40,7 +41,11 @@ def create_app():
     # Register blueprints
     app.register_blueprint(health_bp, url_prefix='/api')
     app.register_blueprint(grading_bp, url_prefix='/api')
-    
+    app.register_blueprint(transcription_bp, url_prefix='/api')
+
+    # Initialize the transcriber (Preloads the WhisperX model on CPU)
+    initialize_transcriber()
+
     return app
 
 if __name__ == '__main__':
@@ -54,7 +59,10 @@ if __name__ == '__main__':
         print("Running on: http://localhost:5001")
         print("Health check: http://localhost:5001/api/health")
         print("Grade endpoint: http://localhost:5001/api/grade")
+        print("Transcription endpoint: http://localhost:5001/api/transcription")
         print("=" * 60)
+
+        
     
     app.run(host='0.0.0.0', port=5001, debug=True)
 
