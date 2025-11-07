@@ -88,12 +88,105 @@ const UploadFileContainer = () => {
         const formData = new FormData();
         formData.append("file", selectedFiles[0]);
         console.log("Zip File");
-        const response = await fetch("http://localhost:5001/api/transcribe", {
+        const transcriptionResponse = await fetch(
+          "http://localhost:5001/api/transcribe",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+        const transcriptionResult = await transcriptionResponse.json();
+        console.log(transcriptionResult);
+        const foldername = transcriptionResult.foldername;
+        alert("transcription successful");
+        // TODO: Upload JSON file from transcription to API and get grades
+
+        // Step 2: Fetch the transcription JSON data
+        const transcriptionDataResponse = await fetch(
+          `http://localhost:5001/api/transcriptions/${foldername}`
+        );
+
+        if (!transcriptionDataResponse.ok) {
+          throw new Error(
+            `Failed to fetch transcription: ${transcriptionDataResponse.statusText}`
+          );
+        }
+
+        const transcriptionData = await transcriptionDataResponse.json();
+
+        if (!transcriptionData.success) {
+          throw new Error("Failed to get transcription data");
+        }
+
+        // Step 3: Send transcript data directly in JSON body to /api/grade
+        setUploadProgress("Grading transcription...");
+        const gradeResponse = await fetch("http://localhost:5001/api/grade", {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json", // Important: Set JSON content type
+          },
+          body: JSON.stringify(transcriptionData.data), // Send the transcript data directly
         });
-        const result = await response.json();
-        console.log(result);
+        const gradeResult = await gradeResponse.json();
+        console.log(gradeResult);
+        alert("analysis successful");
+
+        // Step 4: Update localStorage with dispatcher data
+        const transcriptFilename = `combined_transcript_${foldername}.json`; // foldername from earlier transcription step
+        const dispatcherName = foldername.split("_")[2] || "Unknown"; // from YYYYMMDD_HHMMSS_dispatcher
+
+        // Create/update dispatcher in localStorage
+        const stored = localStorage.getItem("dispatchers");
+        const dispatchers = stored ? (JSON.parse(stored) as Dispatcher[]) : [];
+
+        let dispatcher = dispatchers.find((d) => d.name === dispatcherName);
+        if (!dispatcher) {
+          dispatcher = {
+            id: crypto.randomUUID(), // or uuidv4()
+            name: dispatcherName,
+            files: {
+              transcriptFiles: [],
+              audioFiles: [],
+            },
+            grades: {},
+          };
+          dispatchers.push(dispatcher);
+        }
+
+        // Record transcript file (avoid duplicates)
+        if (!dispatcher.files.transcriptFiles.includes(transcriptFilename)) {
+          dispatcher.files.transcriptFiles.push(transcriptFilename);
+        }
+
+        // Store FULL grade object the UI expects
+        const perQuestion =
+          gradeResult?.grades && typeof gradeResult.grades === "object"
+            ? Object.fromEntries(
+                Object.entries(gradeResult.grades).map(([qid, g]: any) => [
+                  qid,
+                  { code: g.code, label: g.label, status: g.status },
+                ])
+              )
+            : {};
+
+        if (!dispatcher.grades) {
+          dispatcher.grades = {};
+        }
+        dispatcher.grades[transcriptFilename] = {
+          grade_percentage: Math.round(gradeResult.grade_percentage ?? 0),
+          detected_nature_code: gradeResult.detected_nature_code,
+          per_question: perQuestion,
+        };
+
+        // Also add the uploaded zip as an audio file (avoid duplicates)
+        const zipName = selectedFiles[0]?.name;
+        if (zipName && !dispatcher.files.audioFiles.includes(zipName)) {
+          dispatcher.files.audioFiles.push(zipName);
+        }
+
+        // Persist and notify
+        localStorage.setItem("dispatchers", JSON.stringify(dispatchers));
+        window.dispatchEvent(new CustomEvent("dispatchersUpdated"));
       } else {
         ////////////// JSON File Upload (OLD)
         const dispatcherMap = new Map<

@@ -103,6 +103,7 @@ def transcribe_audio():
 
         print(f"Extracting file to: {file_path}")
         folder_name = process_zip(file_path, output_dir=str(OUTPUT_DIR))
+        os.remove(file_path)
         file_path = OUTPUT_DIR / folder_name
         audio_file = file_path / f"{folder_name}.wav"
         print(f"Audio file located at: {audio_file}")
@@ -137,7 +138,8 @@ def transcribe_audio():
         #### Return ####
         return jsonify({
             'message': f'Finished transcription pipeline for: {file.filename}',
-            'filename': file.filename
+            'foldername': folder_name,
+            'file_path': f"output/{folder_name}/combined_transcript_{folder_name}.json"
         })
         
     except Exception as e:
