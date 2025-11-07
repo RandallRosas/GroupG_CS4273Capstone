@@ -137,11 +137,7 @@ export default function PlayerController({
         transcriptData={transcription}
         currentTime={currentTime}
       />
-      <AudioPlayer
-        path={fileURL}
-        onProgress={setCurrentTime}
-        dispatcherName={dispatcherName}
-      />
+      <AudioPlayer path={fileURL || undefined} onProgress={setCurrentTime} />
     </>
   );
 }
