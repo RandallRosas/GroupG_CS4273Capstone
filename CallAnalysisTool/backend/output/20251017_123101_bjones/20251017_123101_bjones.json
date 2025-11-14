@@ -1,12 +1,14 @@
 {
-  "total_segments": 16,
+  "date": 0,
+  "time": 0,
+  "total_segments": 22,
   "speakers": [
-    "dispatcher",
+    "20251017_123101_bjones",
     "caller"
   ],
   "segments": [
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 0.385,
       "end": 4.609,
       "text": "9-9-1-1, what's the location of the emergency?"
@@ -21,7 +23,7 @@
       "speaker": "caller",
       "start": 6.652,
       "end": 10.175,
-      "text": "I'm calling from the Nominational Staff Urgent Care here on Porter."
+      "text": "I'm calling from the Nomination of Staff Urgent Care here on Porter."
     },
     {
       "speaker": "caller",
@@ -30,7 +32,7 @@
       "text": "I have a patient here who said he is needing to go to the ER, needing a ride."
     },
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 16.062,
       "end": 19.866,
       "text": "Okay, so what's going on?"
@@ -45,28 +47,28 @@
       "speaker": "caller",
       "start": 24.23,
       "end": 24.31,
-      "text": "Age."
+      "text": "Age?"
     },
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 25.552,
       "end": 26.352,
       "text": "Sir, how are you?"
     },
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 27.674,
       "end": 28.755,
       "text": "Sir, how are you?"
     },
     {
-      "speaker": "caller",
+      "speaker": "20251017_123101_bjones",
       "start": 30.895,
       "end": 31.155,
       "text": "34."
     },
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 31.276,
       "end": 39.968,
       "text": "Okay, I will get them on the way if anything changes cost back."
@@ -79,27 +81,63 @@
     },
     {
       "speaker": "caller",
-      "start": 43.293,
-      "end": 43.573,
+      "start": 42.551,
+      "end": 43.313,
       "text": "Bye."
     },
     {
-      "speaker": "dispatcher",
-      "start": 43.593,
-      "end": 49.061,
+      "speaker": "caller",
+      "start": 43.333,
+      "end": 43.693,
       "text": "All right, bye."
     },
     {
-      "speaker": "dispatcher",
-      "start": 49.081,
+      "speaker": "caller",
+      "start": 48.199,
+      "end": 48.46,
+      "text": "All right."
+    },
+    {
+      "speaker": "caller",
+      "start": 48.5,
+      "end": 48.78,
+      "text": "All right."
+    },
+    {
+      "speaker": "20251017_123101_bjones",
+      "start": 48.84,
+      "end": 49.201,
+      "text": "All right."
+    },
+    {
+      "speaker": "20251017_123101_bjones",
+      "start": 49.221,
+      "end": 49.561,
+      "text": "All right."
+    },
+    {
+      "speaker": "20251017_123101_bjones",
+      "start": 49.581,
+      "end": 49.862,
+      "text": "All right."
+    },
+    {
+      "speaker": "20251017_123101_bjones",
+      "start": 49.882,
       "end": 50.122,
-      "text": "All right, bye."
+      "text": "All right."
     },
     {
-      "speaker": "dispatcher",
+      "speaker": "20251017_123101_bjones",
       "start": 50.142,
+      "end": 50.403,
+      "text": "All right."
+    },
+    {
+      "speaker": "20251017_123101_bjones",
+      "start": 50.423,
       "end": 50.743,
-      "text": "All right, bye."
+      "text": "All right."
     }
   ]
 }

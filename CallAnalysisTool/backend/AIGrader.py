@@ -14,6 +14,11 @@ from JSONTranscriptionParser import json_to_text
 from detect_naturecode import run_detection
 import ollama
 
+# Configure Ollama client to use environment variable if set
+# The ollama Python client automatically uses OLLAMA_HOST env var
+# Defaults to http://localhost:11434 if not set
+ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+
 # Function for gathering nature codes and cleaning up file structure afterwards
 
 # Input: path to a transcript, transcript text

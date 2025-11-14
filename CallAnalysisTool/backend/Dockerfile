@@ -25,6 +25,5 @@ COPY . .
 # Expose port
 EXPOSE 5001
 
-
-# Run the application
+# Run the Flask application
 CMD ["python", "api/app.py"]
