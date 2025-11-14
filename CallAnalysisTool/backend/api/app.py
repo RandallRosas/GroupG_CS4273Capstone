@@ -17,6 +17,7 @@ from flask_cors import CORS
 from api.routes.grading import grading_bp
 from api.routes.health import health_bp
 from api.routes.transcription import transcription_bp, initialize_transcriber
+from AIGrader import initialize_ollama
 
 def create_app():
     """Application factory pattern"""
@@ -46,6 +47,8 @@ def create_app():
     # Initialize the transcriber (Preloads the WhisperX model on CPU)
     initialize_transcriber()
 
+    # Initialize Ollama (Preloads the llama3.1:8b model)
+    initialize_ollama()
     return app
 
 if __name__ == '__main__':

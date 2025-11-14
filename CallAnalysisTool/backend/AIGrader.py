@@ -19,6 +19,51 @@ import ollama
 # Defaults to http://localhost:11434 if not set
 ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 
+# Add after the blueprint definition
+def initialize_ollama():
+    """
+    Initialize and preload the Ollama model.
+    This should be called once at Flask startup to warm up the model.
+    """
+    try:
+        print("=" * 60)
+        print("Preloading Ollama model (llama3.1:8b)...")
+        print("=" * 60)
+        
+        # Check if Ollama is accessible
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        print(f"Connecting to Ollama at: {ollama_host}")
+        
+        # Make a small test request to load the model into memory
+        # This "warms up" the model so subsequent requests are faster
+        test_prompt = "Say 'ready' if you are ready."
+        
+        print("Sending warm-up request to Ollama...")
+        response = ollama.generate(
+            model='llama3.1:8b',
+            prompt=test_prompt,
+            options={
+                'num_predict': 10,  # Very short response
+                'temperature': 0.0
+            }
+        )
+        
+        if response and 'response' in response:
+            print(f"Ollama model preloaded successfully!")
+            print(f"Warm-up response: {response['response'][:100]}...")
+        else:
+            print("Warning: Ollama responded but response structure unexpected")
+            print(f"Response: {response}")
+        
+        print("=" * 60)
+        
+    except ConnectionError as e:
+        print(f"Warning: Could not connect to Ollama: {e}")
+        print("Ollama may not be running. Grading requests will fail.")
+    except Exception as e:
+        print(f"Warning: Failed to preload Ollama model: {e}")
+        print("Grading requests may be slow on first use.")
+
 # Function for gathering nature codes and cleaning up file structure afterwards
 
 # Input: path to a transcript, transcript text

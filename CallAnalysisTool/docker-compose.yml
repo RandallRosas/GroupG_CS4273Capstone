@@ -11,10 +11,6 @@ services:
       - ollama_data:/root/.ollama
     ports:
       - "11434:11434"
-    deploy:
-      resources:
-        limits:
-          memory: 10G
     # Pull the model on startup
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -33,8 +29,10 @@ services:
     volumes:
       - ./backend/data:/app/data:ro
       - ./backend/output:/app/output
+      - whisperx_cache:/root/.cache
     depends_on:
       - ollama
 
 volumes:
   ollama_data:
+  whisperx_cache:
