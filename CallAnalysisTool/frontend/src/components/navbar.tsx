@@ -39,37 +39,13 @@ const Navbar = () => {
       <div className="w-[180px] sm:w-[220px] md:w-[260px] lg:w-[290px] min-h-screen bg-[#002d62] flex flex-col sticky top-0">
         {/* Norman PD Logo at the top */}
         <div className="flex justify-center pt-8 pb-8">
-          <Link href="/">
+          <Link href="/records">
             <Image src={normanPDLogo} alt="logo" width={180} height={180} />
           </Link>
         </div>
 
         {/* Navigation Links */}
         <div className="flex flex-col gap-8 items-center px-6">
-          <Link
-            href="/"
-            onClick={() => handleClick("Evaluate")}
-            className={`${
-              isHydrated && pageTitle === "Evaluate"
-                ? "text-[#002d62] bg-white"
-                : "text-white"
-            } font-roboto font-bold text-2xl rounded-[10px] px-6 py-3 flex items-center gap-4 w-full`}
-          >
-            <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
-              <Image
-                src={
-                  isHydrated && pageTitle === "Evaluate"
-                    ? evaluateIconBlack
-                    : evaluateIconWhite
-                }
-                alt="evaluate"
-                width={40}
-                height={40}
-              />
-            </div>
-            <span className="flex-1 text-left">Evaluate</span>
-          </Link>
-
           <Link
             href="/records"
             onClick={() => handleClick("Records")}
@@ -92,6 +68,29 @@ const Navbar = () => {
               />
             </div>
             <span className="flex-1 text-left">Records</span>
+          </Link>
+          <Link
+            href="/upload"
+            onClick={() => handleClick("Evaluate")}
+            className={`${
+              isHydrated && pageTitle === "Evaluate"
+                ? "text-[#002d62] bg-white"
+                : "text-white"
+            } font-roboto font-bold text-2xl rounded-[10px] px-6 py-3 flex items-center gap-4 w-full`}
+          >
+            <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
+              <Image
+                src={
+                  isHydrated && pageTitle === "Evaluate"
+                    ? evaluateIconBlack
+                    : evaluateIconWhite
+                }
+                alt="evaluate"
+                width={40}
+                height={40}
+              />
+            </div>
+            <span className="flex-1 text-left">Evaluate</span>
           </Link>
 
           <Link

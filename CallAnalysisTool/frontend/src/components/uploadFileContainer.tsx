@@ -16,7 +16,7 @@ const UploadFileContainer = () => {
   const [showProgressModal, setShowProgressModal] = useState<boolean>(false);
   const router = useRouter();
   // Define allowed audio file types
-  const allowedTypes = [".zip", ".json"];
+  const allowedTypes = [".zip"];
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -422,9 +422,7 @@ const UploadFileContainer = () => {
   return (
     <div className="w-full max-w-2xl mx-auto p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold mb-2">
-          Upload Zip and JSON Files
-        </h2>
+        <h2 className="text-xl font-semibold mb-2">Upload Zip Files</h2>
       </div>
 
       {/* Drag and Drop Area */}
@@ -455,9 +453,9 @@ const UploadFileContainer = () => {
             />
           </svg>
           <p className="text-lg font-medium text-gray-700">
-            Drop zip and json files here, or click to browse
+            Drop zip files here, or click to browse
           </p>
-          <p className="text-sm text-gray-500">Zip and JSON files only</p>
+          <p className="text-sm text-gray-500">Zip files only</p>
         </div>
       </div>
 
@@ -466,7 +464,7 @@ const UploadFileContainer = () => {
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".zip,.json"
+        accept=".zip"
         onChange={(e) => handleFileSelect(e.target.files)}
         className="hidden"
       />
