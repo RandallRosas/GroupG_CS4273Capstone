@@ -128,11 +128,20 @@ def grade_transcript():
         }), 400
     
     except RuntimeError as e:
-        return jsonify({
-            'error': 'AI grading failed',
-            'message': str(e),
-            'suggestion': 'Check if llama3.1:8b model is downloaded (ollama pull llama3.1:8b)'
-        }), 500
+        error_msg = str(e)
+        if "empty response from Ollama" in error_msg:
+            return jsonify({
+                'error': 'AI grading timeout',
+                'message': 'AI grading took too long to complete. The model is working but processing is slow.',
+                'suggestion': 'Try with a shorter transcript or wait for the model to warm up.',
+                'estimated_time': '2-3 minutes'
+            }), 408  # Request Timeout
+        else:
+            return jsonify({
+                'error': 'AI grading failed',
+                'message': error_msg,
+                'suggestion': 'Check if llama3.1:8b model is loaded and Ollama is running'
+            }), 500
     
     except Exception as e:
         return jsonify({
@@ -268,11 +277,20 @@ def upload_and_grade():
         }), 400
     
     except RuntimeError as e:
-        return jsonify({
-            'error': 'AI grading failed',
-            'message': str(e),
-            'suggestion': 'Check if llama3.1:8b model is downloaded (ollama pull llama3.1:8b)'
-        }), 500
+        error_msg = str(e)
+        if "empty response from Ollama" in error_msg:
+            return jsonify({
+                'error': 'AI grading timeout',
+                'message': 'AI grading took too long to complete. The model is working but processing is slow.',
+                'suggestion': 'Try with a shorter transcript or wait for the model to warm up.',
+                'estimated_time': '2-3 minutes'
+            }), 408  # Request Timeout
+        else:
+            return jsonify({
+                'error': 'AI grading failed',
+                'message': error_msg,
+                'suggestion': 'Check if llama3.1:8b model is loaded and Ollama is running'
+            }), 500
     
     except Exception as e:
         return jsonify({
@@ -280,11 +298,46 @@ def upload_and_grade():
         }), 500
 
 
+@grading_bp.route('/grade/status', methods=['GET'])
+def grading_status():
+    """
+    Check if AI grading is ready and warmed up
+    """
+    try:
+        # Quick test to see if Ollama is responsive
+        import ollama
+        response = ollama.generate(
+            model='llama3.1:8b',
+            prompt='Say "ready" if you can respond.',
+            options={'num_predict': 5, 'temperature': 0.0}
+        )
+
+        if response and 'response' in response:
+            return jsonify({
+                'status': 'ready',
+                'model': 'llama3.1:8b',
+                'message': 'AI grading is ready to use',
+                'estimated_grading_time': '2-3 minutes per transcript'
+            }), 200
+        else:
+            return jsonify({
+                'status': 'unresponsive',
+                'message': 'Ollama model is loaded but not responding properly'
+            }), 503
+
+    except Exception as e:
+        return jsonify({
+            'status': 'not_ready',
+            'message': f'AI grading not available: {str(e)}',
+            'suggestion': 'Wait for Ollama to finish loading the model'
+        }), 503
+
+
 @grading_bp.route('/grade/all', methods=['POST'])
 def grade_all():
     """
     Run both rule-based and AI grading, return comparison
-    
+
     TODO: Implement once AI grader is ready
     """
     return jsonify({

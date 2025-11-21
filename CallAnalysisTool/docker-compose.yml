@@ -5,34 +5,21 @@ services:
       - 3000:3000
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:5001
-  ollama:
-    image: ollama/ollama:latest
-    volumes:
-      - ollama_data:/root/.ollama
-    ports:
-      - "11434:11434"
-    # Pull the model on startup
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        ollama serve &
-        sleep 5
-        ollama pull llama3.1:8b
-        wait
+
   backend:
     build: ./backend
     ports:
       - "5001:5001"
+      - "11434:11434"
     environment:
       - FLASK_ENV=production
-      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_HOST=http://localhost:11434
+      - DOCKER_CONTAINER=true
+      - TRANSFORMERS_OFFLINE=1
+      - HF_HUB_OFFLINE=1
     volumes:
       - ./backend/data:/app/data:ro
       - ./backend/output:/app/output
-      - whisperx_cache:/root/.cache
-    depends_on:
-      - ollama
 
 volumes:
-  ollama_data:
   whisperx_cache:

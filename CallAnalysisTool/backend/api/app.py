@@ -27,13 +27,7 @@ def create_app():
     # Supports both Vite (5173) and Next.js (3000) dev servers
     CORS(app, resources={
         r"/*": {  # Allow all routes
-            "origins": [
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
-            ],
+            "origins": "*",
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
@@ -44,11 +38,18 @@ def create_app():
     app.register_blueprint(grading_bp, url_prefix='/api')
     app.register_blueprint(transcription_bp, url_prefix='/api')
 
-    # Initialize the transcriber (Preloads the WhisperX model on CPU)
-    initialize_transcriber()
+    # In containerized environment, defer model initialization to avoid startup issues
+    # Models will be initialized on first request if not already loaded
+    if not os.getenv('DOCKER_CONTAINER', '').lower() in ('true', '1', 'yes'):
+        try:
+            # Initialize the transcriber (Preloads the WhisperX model on CPU)
+            initialize_transcriber()
 
-    # Initialize Ollama (Preloads the llama3.1:8b model)
-    initialize_ollama()
+            # Initialize Ollama (Preloads the llama3.1:8b model)
+            initialize_ollama()
+        except Exception as e:
+            print(f"Warning: Model initialization failed at startup: {e}")
+            print("Models will be initialized on first request.")
     return app
 
 if __name__ == '__main__':

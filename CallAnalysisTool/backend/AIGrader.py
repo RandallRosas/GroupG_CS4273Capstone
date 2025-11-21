@@ -19,12 +19,20 @@ import ollama
 # Defaults to http://localhost:11434 if not set
 ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 
+# Global variable to track Ollama initialization status
+_ollama_initialized = False
+
 # Add after the blueprint definition
 def initialize_ollama():
     """
     Initialize and preload the Ollama model.
     This should be called once at Flask startup to warm up the model.
     """
+    global _ollama_initialized
+
+    if _ollama_initialized:
+        return
+
     try:
         print("=" * 60)
         print("Preloading Ollama model (llama3.1:8b)...")
@@ -51,10 +59,12 @@ def initialize_ollama():
         if response and 'response' in response:
             print(f"Ollama model preloaded successfully!")
             print(f"Warm-up response: {response['response'][:100]}...")
+            _ollama_initialized = True
         else:
             print("Warning: Ollama responded but response structure unexpected")
             print(f"Response: {response}")
-        
+            _ollama_initialized = True  # Still mark as initialized even with unexpected response
+
         print("=" * 60)
         
     except ConnectionError as e:
@@ -195,47 +205,41 @@ def calculate_final_grade(grades, questions_dict):
 # Input: Plain text transcription for grading and list of questions to be asked
 # Output AI's grade for the given transcription based on given questions
 def ai_grade_transcript(transcript_text, questions_dict, nature_code):
-    # Prompt for the AI
-    # NOTE: asking for a JSON submission is more reliable than plain text because the model is familiar with the format
-    # Therefore, we are more likely to receive coherent grades in JSON format rather than a paragraph
-    prompt = f"""
-    You are a 911 call quality assurance analyst. Analyze this transcript and grade it based on the questions from the given nature code below.
-    
-    NATURE_CODE:
-    {nature_code}
+    # Ensure Ollama is initialized before use
+    if not _ollama_initialized:
+        try:
+            initialize_ollama()
+        except Exception as e:
+            print(f"Failed to initialize Ollama for grading: {e}")
+            raise RuntimeError("Ollama initialization failed. Cannot perform AI grading.")
 
-    TRANSCRIPT:
-    {transcript_text}
-    
-    GRADING QUESTIONS (use codes: 1=Asked Correctly, 2=Not Asked, 3=Asked Incorrectly, 4=Not As Scripted, 5=N/A, 6=Obvious, RC=Recorded Correctly):
-    {chr(10).join([f"{qid}: {question}" for qid, question in questions_dict.items()])}
-    
-    Return ONLY a JSON object with this format, this is just an example format, add as many entries as necessary for grading the given questions:
-    {{
-        "1": "1",
-        "1a": "1", 
-        "1b": "5",
-        "2": "4",
-        "2a": "2"
-    }}
+    # Prompt for the AI - optimized for web use
+    prompt = f"""You are a 911 call quality assurance analyst. Analyze this transcript and grade it based on the questions from the given nature code below.
 
-    Note that the left hand side is for the question ID and the right hand side is for the grade.  Add as many entries as needed to satisfy the required grading.
+NATURE_CODE: {nature_code}
 
-    Important grading guidelines:
-    - Use code "1" only if the question was asked exactly as scripted with correct wording
-    - Use code "2" if the question was not asked at all
-    - Use code "3" if the question was asked but with incorrect or misleading information that could impact patient care
-    - Use code "4" if the question was asked with different wording but still captured the essential information correctly
-    - Use code "5" only for questions that are clearly not applicable to this specific call scenario
-    - Use code "6" when the information was provided voluntarily by the caller without needing to ask the question
-    - Use code "RC" for administrative questions that were recorded correctly in the system
-    - Be strict in your assessment as repeating the exact question is important for most cases with relatively few exceptions
-    - For code "6" (Obvious), ensure the information was clearly stated by the caller without prompting (Compare exact question wording to call before determining if
-      obvious is an appropriate grade, grading is meant to be strict so obvious should only be used when the question has been BEYOND A DOUBT obviously answered)
-    """
+TRANSCRIPT:
+{transcript_text}
+
+GRADING QUESTIONS (use codes: 1=Asked Correctly, 2=Not Asked, 3=Asked Incorrectly, 4=Not As Scripted, 5=N/A, 6=Obvious, RC=Recorded Correctly):
+{chr(10).join([f"{qid}: {question}" for qid, question in questions_dict.items()])}
+
+Return ONLY a JSON object with question IDs as keys and grade codes as values. Example: {{"CE_1": "1", "CE_2": "2"}}
+
+Important: Be accurate and return valid JSON only."""
     
     try:
-        response = ollama.generate(model='llama3.1:8b', prompt=prompt)
+        # Add timeout and optimize generation parameters for faster response
+        response = ollama.generate(
+            model='llama3.1:8b',
+            prompt=prompt,
+            options={
+                'temperature': 0.1,  # Lower temperature for more consistent responses
+                'top_p': 0.9,        # Slightly more focused responses
+                'num_predict': 500,  # Limit response length
+                'timeout': 120       # 2 minute timeout
+            }
+        )
         # Extract JSON from response
         import json
         import re
