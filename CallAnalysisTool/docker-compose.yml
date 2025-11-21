@@ -1,5 +1,6 @@
 services:
   frontend:
+    image: callanalysistool-frontend:latest
     build: ./frontend
     ports:
       - 3000:3000
@@ -7,6 +8,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:5001
 
   backend:
+    image: callanalysistool-backend:latest
     build: ./backend
     ports:
       - "5001:5001"

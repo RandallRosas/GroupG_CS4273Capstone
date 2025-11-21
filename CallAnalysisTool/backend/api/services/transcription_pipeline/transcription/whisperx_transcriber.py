@@ -16,7 +16,7 @@ import argparse
 class TranscriptionConfig:
     """Configuration for WhisperX transcription"""
     implementation: str = "whisperx"
-    model_size: str = "base"
+    model_size: str = "large-v3"
     beam_size: int = 5
     best_of: int = 5
     temperature: float = 0.0

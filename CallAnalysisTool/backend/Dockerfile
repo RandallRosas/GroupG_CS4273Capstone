@@ -26,8 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Pre-download WhisperX models during build time
 # This prevents downloads at runtime
 RUN python -c "import whisperx; \
-    print('Downloading WhisperX model: base'); \
-    whisperx.load_model('base', 'cpu', compute_type='int8'); \
+    print('Downloading WhisperX model: large-v3'); \
+    whisperx.load_model('large-v3', 'cpu', compute_type='int8'); \
     print('Downloading alignment model for English'); \
     whisperx.load_align_model('en', 'cpu'); \
     print('All models downloaded successfully!')"
