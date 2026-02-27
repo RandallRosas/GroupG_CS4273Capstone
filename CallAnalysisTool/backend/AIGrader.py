@@ -277,7 +277,10 @@ Important: Be accurate and return valid JSON only."""
                 'temperature': 0.1,  # Lower temperature for more consistent responses
                 'top_p': 0.9,        # Slightly more focused responses
                 'num_predict': 500,  # Limit response length
-                'timeout': 120       # 2 minute timeout
+                'timeout': 120,       # 2 minute timeout
+                'seed': 42,
+                'num_gpu': 0,
+                'top_k': 0.9
             }
         )
         # Extract JSON from response

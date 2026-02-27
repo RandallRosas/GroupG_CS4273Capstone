@@ -23,3 +23,6 @@ testCoverageC
 # Editors/IDEs
 .vscode/
 .idea/
+
+# Processed files
+CallAnalysisTool/backend/output/
