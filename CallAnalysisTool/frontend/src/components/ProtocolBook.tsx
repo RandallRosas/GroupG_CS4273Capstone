@@ -5,7 +5,7 @@ const PRIMARY_NAVY = "#002d62";
 const ROUNDING_CLASS = "rounded-[10px]";
 
 //Protocol Data Array (Protocols and Questions) 
-const protocols = [
+export const protocols = [
   {
     id: "0",
     title: "Case Entry",

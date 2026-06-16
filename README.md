@@ -52,12 +52,12 @@ Consolidated view of the current code layout. Some folders live on feature branc
 │   │   │   ├── question_loader.py   # EMSQA.csv loader
 │   │   │   ├── rule_grader.py       # Rule-based grading (legacy)
 │   │   │   └── transcription_pipeline/  # Audio transcription pipeline
-│   │   │       ├── zip_processor.py    # Zip file extraction and CDR parsing
+│   │   │       ├── zip_processor.py     # Zip file extraction and CDR parsing
 │   │   │       ├── transcription/
 │   │   │       │   └── whisperx_transcriber.py  # WhisperX transcription service
 │   │   │       ├── speaker_separate/
 │   │   │       │   └── speaker_separation.py    # Speaker diarization (dispatcher/caller)
-│   │   │       └── audio-processing/           # Audio processing utilities
+│   │   │       └── audio-processing/            # Audio processing utilities
 │   │   └── app.py                   # Flask app factory (main entry point)
 │   ├── EMS_CallAnalyzer.py          # Legacy non-AI analyzer (S1 baseline)
 │   ├── api.py                       # Legacy API (/analyze) — maintained for backward compatibility
@@ -112,9 +112,9 @@ Consolidated view of the current code layout. Some folders live on feature branc
 
 ### Backend Setup
 
-#### Prerequisites
+**Prerequisites**
 
-**Install Ollama** (required for AI grading):
+Install Ollama (required for AI grading):
 
 ```bash
 # Visit https://ollama.ai to install Ollama
@@ -129,9 +129,34 @@ ollama pull llama3.1:8b
 ollama serve
 ```
 
-#### Installation
+Install FFMPEG (required for Whisper file loading):
 
-**Mac/Linux:**
+```bash
+# Using Windows (PowerShell)
+winget install ffmpeg
+
+# Using Mac (Homebrew)
+brew install ffmpeg
+```
+
+**Installation**
+
+Windows (PowerShell):
+
+```powershell
+cd CallAnalysisTool\backend
+
+# Either run the powershell installation script:
+.\install_api_requirements.ps1
+
+# Or do it manually:
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+$env:PYTHONPATH = "."
+```
+
+Mac/Linux:
 
 ```bash
 cd CallAnalysisTool/backend
@@ -141,40 +166,40 @@ pip install -r requirements.txt
 export PYTHONPATH=.
 ```
 
-**Windows (PowerShell):**
+**Running the Server**
+
+Windows (PowerShell):
 
 ```powershell
 cd CallAnalysisTool\backend
-python -m venv venv
+
+# Either run the powershell startup script:
+.\start_api.ps1
+
+# Or do it manually
 .\venv\Scripts\activate
-pip install -r requirements.txt
 $env:PYTHONPATH = "."
+$env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD= "true"
+python .\api\app.py
 ```
 
-#### Running the Server
-
-**Mac/Linux:**
+Mac/Linux:
 
 ```bash
 cd CallAnalysisTool/backend
 export PYTHONPATH=.
-python api/app.py
-```
-
-**Windows (PowerShell):**
-
-```powershell
-cd CallAnalysisTool\backend
-$env:PYTHONPATH = "."
+export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true
 python api/app.py
 ```
 
 Server will start on: **http://localhost:5001**
 
-**Note:**
+**Notes:**
 
 - The first startup will download the WhisperX model (large-v3 by default), which may take several minutes. The model is preloaded at startup for faster transcription processing.
 - For AI grading, ensure Ollama is running with the llama3.1:8b model downloaded.
+- If you run into `FileNotFound` or similar exceptions, check that FFMPEG is installed and accessible in the current scope (wherever you're running the server at)
+- If you run into torch errors during the WhipserX transcription step, check the environmental variable `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD` is to to `true`
 
 ---
 
@@ -198,6 +223,11 @@ yarn dev
 pnpm dev
 
 # Open http://localhost:3000 in your browser
+
+# Or start without devtools (preview mode)
+npm run build
+npm run start
+# See terminal for correct localhost port
 ```
 
 The frontend connects to the backend API at `http://localhost:5001`.
@@ -243,11 +273,12 @@ Given a 911 call transcript and a set of required protocol questions for a selec
 1. **Upload Audio**: Upload a zip file containing:
    - WAV audio file (911 call recording)
    - CDR text file (call detail record with metadata)
+   - **IMPORTANT:** Make sure the files are zipped as is, i.e., do not put them into another folder before zipping
 2. **Transcription**: The pipeline automatically:
    - Extracts and processes the zip file
    - Transcribes audio to text using WhisperX
    - Separates dispatcher and caller segments
-   - Saves structured JSON transcript to `output/` directory
+   - Saves structured JSON transcript to `backend/output/` directory
 3. **Grading**: Use the transcript JSON for protocol question analysis
 
 ### Grading Workflow
@@ -746,11 +777,12 @@ If WhisperX model fails to download:
 
 ---
 
-## Team Contributions
+## Team Members (Spring 2026)
 
 | Name            | Role                                      | Contact                    |
 | --------------- | ----------------------------------------- | -------------------------- |
-| Camden Laskie   | Product Owner / UI                        | camdenlaskie@ou.edu        |
-| Kevin Nguyen    | SM1 / Rule Grader + Tests                 | kevin.nguyen@ou.edu        |
-| Jaiden Sizemore | SM2 / Parser + AI                         | jaiden.m.sizemore-1@ou.edu |
-| Natalie Roman   | SM3 / Docs + Protocols/CSV + AI selection | casandra.n.roman-1@ou.edu  |
+| Luke Chey       | Product Owner                             | lvchey@ou.edu              |
+| Brayden Garner  | SM1                                       | bgarner@ou.edu             |
+| Keyera Lastrap  | SM2                                       | keyera.l.lastrap-1@ou.edu  |
+| Michael Crabb   | SM3                                       | michael.m.crabb-1@ou.edu   |
+| Ethan Gulley    | SM4                                       | ethangulley@ou.edu         |

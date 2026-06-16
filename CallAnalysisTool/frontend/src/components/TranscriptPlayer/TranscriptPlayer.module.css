@@ -86,3 +86,73 @@
   font-weight: bold;
   margin-bottom: 4px;
 }
+
+.editButton {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background-color: white;
+  color: black;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editButton:hover {
+  background-color: #1d4ed8;
+}
+
+.editSelect {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+}
+
+.editTextarea {
+  width: 100%;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.saveButton {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background-color: #16a34a;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.saveButton:hover {
+  background-color: #15803d;
+}
+
+.cancelButton {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background-color: #64748b;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cancelButton:hover {
+  background-color: #475569;
+}

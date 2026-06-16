@@ -1,17 +1,10 @@
-"use client";
-
-import { useEffect } from "react";
+import { Suspense } from "react";
 import DispatcherList from "@/components/dispatcherList";
-import { seedDispatchers } from "@/utils/seedDispatchers";
 
 export default function Records() {
-  // useEffect(() => {
-  //   seedDispatchers();
-  // }, []);
-
   return (
-    <div>
+    <Suspense fallback={<div className="p-4 text-center">Loading records...</div>}>
       <DispatcherList />
-    </div>
+    </Suspense>
   );
 }

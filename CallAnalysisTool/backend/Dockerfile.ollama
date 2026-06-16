@@ -1,0 +1,16 @@
+FROM ollama/ollama:latest
+
+ARG OLLAMA_HOST=0.0.0.0
+ARG OLLAMA_MODEL
+ENV OLLAMA_MODEL=${OLLAMA_MODEL}
+
+ENV OLLAMA_HOST=${OLLAMA_HOST}
+
+RUN ollama serve & \
+    pid=$! && \
+    sleep 5 && \
+    ollama pull "${OLLAMA_MODEL}" && \
+    kill "${pid}" && \
+    wait "${pid}" || true
+
+CMD ["serve"]
