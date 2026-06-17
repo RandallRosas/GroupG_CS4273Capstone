@@ -1,0 +1,53 @@
+# Multi-stage build for Next.js
+FROM node:20-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Arguments for environment variables
+ARG NODE_ENV=production
+ARG PORT=3000
+ARG NEXT_PUBLIC_API_PORT=5001
+ARG NEXT_PUBLIC_API_URL
+
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_API_PORT=${NEXT_PUBLIC_API_PORT}
+ENV NODE_ENV=${NODE_ENV}
+ENV PORT=${PORT}
+
+# Build Next.js app
+RUN npm run build
+
+# Production image
+FROM base AS runner
+WORKDIR /app
+
+ARG NODE_ENV=production
+ARG PORT=3000
+ARG NEXT_PUBLIC_API_PORT=5001
+ARG NEXT_PUBLIC_API_URL
+
+ENV NODE_ENV=${NODE_ENV}
+ENV NEXT_PUBLIC_API_PORT=${NEXT_PUBLIC_API_PORT}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+# Copy built application
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+
+EXPOSE 3000
+
+ENV PORT=${PORT}
+
+CMD ["node", "server.js"]

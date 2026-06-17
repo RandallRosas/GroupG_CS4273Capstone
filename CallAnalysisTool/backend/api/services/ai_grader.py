@@ -1,206 +1,236 @@
-"""
-AI-based grading service with nature code detection
-Wraps AIGrader.py and detect_naturecode.py to work with the Flask API
-"""
+"""AI-based transcript grading helpers with a single file-based entrypoint."""
 
 import json
-import tempfile
-from typing import Dict, Any, Tuple
-from pathlib import Path
-import sys
 import os
+import re
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
-# Add parent backend directory to path for module imports
-backend_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(backend_path))
+from api.services.prompts import get_grading_system_prompt, get_single_question_prompt
+from api.services.ollama_handler import chat_ollama
+from api.services.nature_codes import load_nature_code_questions, get_nature_codes_master
+from api.services.text_handler import json_to_text
 
-# Import core grading and nature code detection modules
-from JSONTranscriptionParser import json_to_text
-from AIGrader import (
-    detect_nature_codes_in_memory,
-    extract_all_nature_codes,
-    load_nature_code_questions,
-    ai_grade_transcript,
-    calculate_final_grade
-)
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+PER_QUESTION_MAX_RETRIES = 3
+FALLBACK_REASONING = "No valid bracketed grade was returned after the maximum retry attempts."
 
-class AIGraderService:
-    """
-    AI-based transcript grader using Ollama (llama3.1:8b model)
-    Integrates AI grading with nature code detection
-    """
-    
-    # Grading code meanings
-    KEY = {
-        "1": "Asked Correctly",
-        "2": "Not Asked",
-        "3": "Asked Incorrectly",
-        "4": "Not As Scripted",
-        "5": "N/A",
-        "6": "Obvious",
-        "RC": "Recorded Correctly"
-    }
-    
-    def __init__(self):
-        """
-        Initialize AI grader
-        Questions are now loaded dynamically based on detected nature codes
-        """
-        pass
-    
-    def grade_transcript(self, transcript_data: Dict[str, Any], show_evidence: bool = False) -> Tuple[Dict[str, Any], str, Dict[str, str]]:
-        """
-        Grade a transcript using AI with nature code detection
-        
-        Args:
-            transcript_data: Group B's JSON format with 'segments' array
-            show_evidence: Whether to include evidence (not used currently)
-        
-        Returns:
-            Tuple of (formatted_grades, primary_nature_code, all_questions)
-            formatted_grades: Dict with structure:
-            {
-                "CE_1": {"code": "1", "label": "...", "status": "Asked Correctly"},
-                "NC_3": {"code": "2", "label": "...", "status": "Not Asked"},
-                ...
+GRADE_KEY = {
+    "1": "Asked Correctly",
+    "2": "Not Asked",
+    "3": "Asked Incorrectly",
+    "4": "Not As Scripted",
+    "5": "Not Applicable",
+    "6": "Obvious",
+    "RC": "Recorded Correctly",
+}
+
+
+def _questions_list_to_dict(questions: list[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    return {q["Question_ID"]: q for q in questions if q.get("Question_ID")}
+
+
+def _extract_grade_and_reasoning(response: str) -> Tuple[str | None, str]:
+    if not response:
+        return None, ""
+
+    cleaned = response.strip()
+    match = re.search(r"\[([1-6])\]", cleaned)
+    if not match:
+        return None, cleaned
+
+    grade_code = match.group(1)
+    reasoning = re.sub(r"\[[1-6]\]", "", cleaned, count=1).strip()
+    return grade_code, reasoning
+
+
+def calculate_final_grade(grades: Dict[str, str], questions_dict: Dict[str, Dict[str, Any]]) -> float:
+    total_points = 0
+    earned_points = 0.0
+
+    for qid, grade in grades.items():
+        if qid not in questions_dict or grade in {"5", "RC"}:
+            continue
+
+        total_points += 1
+        if grade in {"1", "6"}:
+            earned_points += 1.0
+        elif grade == "4":
+            earned_points += 0.5
+
+    if total_points == 0:
+        return 0.0
+
+    return (earned_points / total_points) * 100
+
+
+def ai_grade_per_question(
+    transcript_text: str,
+    questions_dict: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, str]]:
+    """Grade a transcript one question at a time using a persistent chat."""
+    system_prompt = get_grading_system_prompt(transcript_text, questions_dict)
+
+    print(f"[SYSTEM]\n{system_prompt}\n")
+
+    messages = [{"role": "system", "content": system_prompt}]
+    grade_details: Dict[str, Dict[str, str]] = {}
+
+    for question_id, question in questions_dict.items():
+        # Set skipped questions to N/A (5)
+        if question.get("Skip_AI_Grading", False):
+            grade_details[question_id] = {
+                "code": "5",
+                "reasoning": "This question was set to be skipped for AI grading.",
             }
-        """
-        import traceback
-        
-        print("Starting grade_transcript method...", flush=True)
-        sys.stderr.write("Starting grade_transcript method...\n")
-        sys.stderr.flush()
-        
-        # JSONTranscriptionParser expects a file path, so create a temp file
-        try:
-            print("Creating temp file for transcript...", flush=True)
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
-                json.dump(transcript_data, tmp)
-                tmp_path = tmp.name
-            print(f"Temp file created: {tmp_path}", flush=True)
-        except Exception as e:
-            sys.stderr.write(f"ERROR creating temp file: {e}\n{traceback.format_exc()}\n")
-            sys.stderr.flush()
-            raise
-        
-        try:
-            # Step 1: Convert JSON to text format
-            print("Step 1: Converting JSON to text format...", flush=True)
-            sys.stderr.write("Step 1: Converting JSON to text format...\n")
-            sys.stderr.flush()
-            transcript_text = json_to_text(tmp_path)
-            if not transcript_text:
-                raise ValueError("Failed to parse transcript data")
-            print(f"Step 1 complete: Got transcript text ({len(transcript_text)} chars)", flush=True)
-            
-            # Step 2: Detect nature codes
-            print("Step 2: Detecting nature codes...", flush=True)
-            sys.stderr.write("Step 2: Detecting nature codes...\n")
-            sys.stderr.flush()
-            try:
-                nature_codes_text = detect_nature_codes_in_memory(tmp_path, transcript_text)
-            except Exception as e:
-                sys.stderr.write(f"ERROR in nature code detection: {e}\n")
-                sys.stderr.write(f"Traceback: {traceback.format_exc()}\n")
-                sys.stderr.flush()
-                raise RuntimeError(f"Failed to detect nature codes: {e}")
-            
-            if not nature_codes_text:
-                raise RuntimeError("Failed to detect nature codes - empty result")
-            print(f"Step 2 complete: Got nature codes text", flush=True)
-            
-            # Step 3: Extract and sort nature codes by confidence
-            print("Step 3: Extracting nature codes...", flush=True)
-            nature_codes = extract_all_nature_codes(nature_codes_text)
-            if not nature_codes:
-                raise RuntimeError("No nature codes detected in transcript")
-            print(f"Step 3 complete: Found {len(nature_codes)} nature codes", flush=True)
-            
-            # Step 4: Get primary nature code (highest confidence)
-            primary_nature_code = nature_codes[0][0]
-            print(f"Step 4 complete: Primary nature code: {primary_nature_code}", flush=True)
-            
-            # Step 5: Load questions for Case Entry AND primary nature code
-            print("Step 5: Loading questions...", flush=True)
-            case_entry_questions = load_nature_code_questions("Case Entry")
-            nature_code_questions = load_nature_code_questions(primary_nature_code)
-            
-            # Combine into one dict
-            all_questions = {**case_entry_questions, **nature_code_questions}
-            
-            if not all_questions:
-                raise RuntimeError("Failed to load questions from EMSQA.csv")
-            print(f"Step 5 complete: Loaded {len(all_questions)} questions", flush=True)
-            
-            # Step 6: Get AI grades
-            print("Step 6: Getting AI grades from Ollama...", flush=True)
-            sys.stderr.write("Step 6: Getting AI grades from Ollama...\n")
-            sys.stderr.flush()
-            try:
-                ai_grades = ai_grade_transcript(transcript_text, all_questions, primary_nature_code)
-            except Exception as e:
-                sys.stderr.write(f"ERROR in AI grading: {e}\n")
-                sys.stderr.write(f"Traceback: {traceback.format_exc()}\n")
-                sys.stderr.flush()
-                raise RuntimeError(f"AI grading failed: {e}")
-            
-            if not ai_grades:
-                raise RuntimeError("AI grading failed - empty response from Ollama")
-            print(f"Step 6 complete: Got {len(ai_grades)} grades", flush=True)
-            
-            # Step 7: Format grades to match API response structure
-            formatted_grades = {}
-            for q_id, question_text in all_questions.items():
-                code = ai_grades.get(q_id, "2")  # Default to "Not Asked" if missing
-                formatted_grades[q_id] = {
-                    "code": code,
-                    "label": question_text,
-                    "status": self.KEY.get(code, "Unknown")
-                }
-            
-            print("Step 7 complete: Grades formatted successfully", flush=True)
-            return formatted_grades, primary_nature_code, all_questions
-        
-        except Exception as e:
-            sys.stderr.write(f"ERROR in grade_transcript: {e}\n")
-            sys.stderr.write(f"Full traceback:\n{traceback.format_exc()}\n")
-            sys.stderr.flush()
-            raise
-        
-        finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-    
-    def calculate_percentage(self, grades: Dict[str, Any], questions: Dict[str, str]) -> float:
-        """
-        Calculate grade percentage using the standard grading scheme
-        
-        Grading Key:
-        1 = Asked Correctly (100%)
-        2 = Not Asked (0%)
-        3 = Asked Incorrectly (0%)
-        4 = Not As Scripted (50% - partial credit)
-        5 = N/A (excluded from calculation)
-        6 = Obvious (100%)
-        RC = Recorded Correctly (excluded from calculation)
-        
-        Args:
-            grades: Dict of grades from grade_transcript()
-            questions: Dict of all questions that were graded
-        
-        Returns:
-            Percentage score (0.0 - 100.0)
-        """
-        if not grades or not questions:
-            return 0.0
-        
-        # Convert formatted grades back to simple code dict
-        grade_codes = {}
-        for q_id, grade_data in grades.items():
-            grade_codes[q_id] = grade_data.get('code', '2')
-        
-        # Calculate final grade using the standard grading function
-        percentage = calculate_final_grade(grade_codes, questions)
-        return round(percentage, 1)
+            continue
 
+        user_message = get_single_question_prompt(question)
+        print(f"==============================\n[USER]\n{user_message}\n")
+        messages.append({"role": "user", "content": user_message})
+
+        grade_code = None
+        reasoning = ""
+
+        for attempt in range(PER_QUESTION_MAX_RETRIES):
+            response = chat_ollama(messages)
+            print(f"[OLLAMA]\n{response}\n")
+
+            grade_code, reasoning = _extract_grade_and_reasoning(response)
+
+            if grade_code:
+                assistant_reply = response.strip()
+                messages.append({"role": "assistant", "content": assistant_reply})
+                grade_details[question_id] = {
+                    "code": grade_code,
+                    "reasoning": reasoning,
+                }
+                break
+
+            invalid_reply = (response or "").strip()
+            if invalid_reply:
+                messages.append({"role": "assistant", "content": invalid_reply})
+
+            if attempt < PER_QUESTION_MAX_RETRIES - 1:
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Your last reply was invalid because it did not include a grade in square brackets "
+                            "at the beginning. Reply again using this exact structure: [X] reasoning text with "
+                            "direct quote(s). Also remember that transcript labels may be incorrect, including "
+                            "cases where the dispatcher appears to talk to themself or does not wait for a proper response."
+                        ),
+                    }
+                )
+            print("=== RETRYING ===")
+
+        if not grade_code:
+            fallback_reply = "[5] " + FALLBACK_REASONING
+            messages.append({"role": "assistant", "content": fallback_reply})
+            grade_details[question_id] = {
+                "code": "5",
+                "reasoning": FALLBACK_REASONING,
+            }
+
+    return grade_details
+
+
+def format_grades(
+    ai_grades: Dict[str, Dict[str, str]],
+    questions_dict: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, str]]:
+    """Format AI grade details for API/storage responses."""
+    formatted = {}
+
+    for q_id, q_data in questions_dict.items():
+        code = ai_grades.get(q_id, {}).get("code", "2")
+        formatted[q_id] = {
+            "code": code,
+            "label": q_data.get("Question_Text", ""),
+            "status": GRADE_KEY.get(code, "Unknown"),
+            "reasoning": ai_grades.get(q_id, {}).get("reasoning", ""),
+        }
+
+    return formatted
+
+
+def calculate_percentage(grades: Dict[str, Any], questions_dict: Dict[str, Dict[str, Any]]) -> float:
+    if not grades or not questions_dict:
+        return 0.0
+
+    grade_codes = {q_id: grade_data.get("code", "2") for q_id, grade_data in grades.items()}
+    return round(calculate_final_grade(grade_codes, questions_dict), 1)
+
+
+def _get_nature_code_name(nature_code_id: str) -> str:
+    nature_codes_master = get_nature_codes_master()
+    return nature_codes_master.get(str(nature_code_id), {}).get("nature_code_name", "Unknown")
+
+
+def grade_transcript_file(
+    nature_code_id: str,
+    transcript_path: Path,
+    output_path: Path,
+    nature_code_reasoning: str = "",
+) -> Tuple[Dict[str, Any], Path]:
+    """Grade a transcript JSON file and write grades.json to output_path."""
+    with open(transcript_path, "r", encoding="utf-8") as f:
+        transcript_data = json.load(f)
+
+    if not isinstance(transcript_data, dict) or "segments" not in transcript_data:
+        raise ValueError("Invalid transcript format")
+
+    transcript_text = json_to_text(json_data=transcript_data)
+
+    questions_list = load_nature_code_questions(nature_code_id, include_case_entry=True)
+    questions_dict = _questions_list_to_dict(questions_list)
+
+    print("Running AI grading...", flush=True)
+    ai_grades = ai_grade_per_question(transcript_text, questions_dict)
+
+    if not ai_grades:
+        raise RuntimeError("AI grading returned empty results")
+
+    grades = format_grades(ai_grades, questions_dict)
+    print(f"Grade transcript completed. Got {len(grades)} grades.", flush=True)
+
+    percentage = calculate_percentage(grades, questions_dict)
+    total_questions = len(grades)
+    case_entry_count = sum(1 for q_id in grades if q_id.startswith("CE_"))
+    nature_code_count = sum(1 for q_id in grades if q_id.startswith("NC_"))
+    questions_asked_correctly = sum(1 for grade in grades.values() if grade.get("code") in {"1", "6"})
+    questions_missed = total_questions - questions_asked_correctly
+
+    nature_code_name = _get_nature_code_name(nature_code_id)
+
+    response = {
+        "grader_type": "ai",
+        "grade_percentage": percentage,
+        "detected_nature_code": {
+            "id": str(nature_code_id),
+            "name": nature_code_name,
+        },
+        "nature_code_reasoning": nature_code_reasoning,
+        "total_questions": total_questions,
+        "case_entry_questions": case_entry_count,
+        "nature_code_questions": nature_code_count,
+        "questions_asked_correctly": questions_asked_correctly,
+        "questions_missed": questions_missed,
+        "timestamp": datetime.now().isoformat() + "Z",
+        "grades": grades,
+        "metadata": {
+            "language": transcript_data.get("language", "unknown"),
+            "segment_count": len(transcript_data.get("segments", [])),
+            "grader_version": "2.0.0",
+            "model": OLLAMA_MODEL,
+            "questions_source": f"EMSQA.csv (Case Entry + {nature_code_name})",
+        },
+    }
+
+    grades_path = output_path / "grades.json"
+    with open(grades_path, "w", encoding="utf-8") as f:
+        json.dump(response, f, indent=2)
+
+    return response, grades_path

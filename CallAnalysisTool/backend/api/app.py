@@ -14,10 +14,19 @@ sys.path.insert(0, str(backend_dir))
 
 from flask import Flask, jsonify
 from flask_cors import CORS
-from api.routes.grading import grading_bp
-from api.routes.health import health_bp
-from api.routes.transcription import transcription_bp, initialize_transcriber
-from AIGrader import initialize_ollama
+from api.routes.dispatchers import dispatchers_bp
+from api.routes.files import files_bp
+from api.routes.regrade import regrade_bp
+from api.routes.upload import upload_bp
+from api.services.whisperx_transcriber import initialize_transcriber
+from api.services.ollama_handler import initialize_ollama, check_ollama_ready
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes", "on")
 
 def create_app():
     """Application factory pattern"""
@@ -34,9 +43,10 @@ def create_app():
     })
     
     # Register blueprints
-    app.register_blueprint(health_bp, url_prefix='/api')
-    app.register_blueprint(grading_bp, url_prefix='/api')
-    app.register_blueprint(transcription_bp, url_prefix='/api')
+    app.register_blueprint(dispatchers_bp, url_prefix='/api')
+    app.register_blueprint(upload_bp, url_prefix='/api')
+    app.register_blueprint(files_bp, url_prefix='/api')
+    app.register_blueprint(regrade_bp, url_prefix='/api')
     
     # Add error handler to catch all unhandled errors
     @app.errorhandler(Exception)
@@ -57,7 +67,7 @@ def create_app():
 
     # In containerized environment, defer model initialization to avoid startup issues
     # Models will be initialized on first request if not already loaded
-    if not os.getenv('DOCKER_CONTAINER', '').lower() in ('true', '1', 'yes'):
+    if not _env_flag("DOCKER_CONTAINER"):
         try:
             # Initialize the transcriber (Preloads the WhisperX model on CPU)
             initialize_transcriber()
@@ -69,40 +79,34 @@ def create_app():
             print("Models will be initialized on first request.")
     else:
         # In Docker, wait a bit for Ollama to start, then check readiness
-        import time
-        import threading
-        def wait_for_ollama():
-            print("Waiting for Ollama to start...")
-            time.sleep(5)  # Give Ollama time to start
-            try:
-                from AIGrader import check_ollama_ready
-                if check_ollama_ready(max_retries=10, retry_delay=3):
-                    print("Ollama is ready!")
-                    initialize_ollama()
-                else:
-                    print("Warning: Ollama readiness check failed. Will retry on first request.")
-            except Exception as e:
-                print(f"Warning: Could not check Ollama readiness: {e}")
-        
-        # Start in background thread so Flask can start immediately
-        threading.Thread(target=wait_for_ollama, daemon=True).start()
+        print("Waiting for Ollama to start...")
+        try:
+            if check_ollama_ready(max_retries=6, retry_delay=10):
+                print("Ollama is ready!")
+                initialize_ollama()
+            else:
+                print("Warning: Ollama readiness check failed. Will retry on first request.")
+        except Exception as e:
+            print(f"Warning: Could not check Ollama readiness: {e}")
     return app
 
 if __name__ == '__main__':
     app = create_app()
+    port = int(os.getenv("PORT", "5001"))
+    debug = _env_flag("FLASK_DEBUG", default=os.getenv("FLASK_ENV", "production").lower() == "development")
     
     # Only print banner once (not during reloader restart)
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         print("=" * 60)
         print("EMS Call Analysis API Server")
         print("=" * 60)
-        print("Running on: http://localhost:5001")
-        print("Health check: http://localhost:5001/api/health")
-        print("Grade endpoint: http://localhost:5001/api/grade")
-        print("Transcription endpoint: http://localhost:5001/api/transcription")
+        print(f"Running on: http://localhost:{port}")
+        print(f"Dispatchers endpoint: http://localhost:{port}/api/dispatchers")
+        print(f"Upload endpoint: http://localhost:{port}/api/upload")
+        print(f"Files endpoint: http://localhost:{port}/api/files/<filename>")
         print("=" * 60)
 
         
     
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug)
 

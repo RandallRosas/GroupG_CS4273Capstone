@@ -1,37 +1,27 @@
 "use client";
 import Link from "next/link";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import normanPDLogo from "@/../public/norman-pd-logo.svg";
 import evaluateIconBlack from "@/../public/evaluate-icon-black.svg";
 import evaluateIconWhite from "@/../public/evaluate-icon-white.svg";
-import reviewIconWhite from "@/../public/review-icon-white.svg";
-import reviewIconBlack from "@/../public/review-icon-black.svg";
 import recordsIconWhite from "@/../public/records-icon-white.svg";
 import recordsIconBlack from "@/../public/records-icon-black.svg";
 import helpIconWhite from "@/../public/help-icon-white.svg";
 import helpIconBlack from "@/../public/help-icon-black.svg";
 
 const Navbar = () => {
-  // Create and Handle Page Title State
-  const [pageTitle, setPageTitle] = useState<string>("Evaluate");
-  const [isHydrated, setIsHydrated] = useState(false);
+  const pathname = usePathname();
 
-  // Handle hydration and load from localStorage,
-  //This is used to persist the page title between refreshes for user experience
-  useEffect(() => {
-    setIsHydrated(true);
-    const savedPageTitle = localStorage.getItem("pageTitle");
-    if (savedPageTitle) {
-      setPageTitle(savedPageTitle);
-    }
-  }, []);
-
-  const handleClick = (title: string) => {
-    setPageTitle(title);
-    // Save to localStorage
-    localStorage.setItem("pageTitle", title);
-  };
+  const activePage =
+    pathname === "/evaluate"
+      ? "Evaluate"
+      : pathname.startsWith("/records")
+        ? "Records"
+        : pathname.startsWith("/help")
+          ? "Help"
+          : "";
 
   // Create NavBar Component
   return (
@@ -39,7 +29,7 @@ const Navbar = () => {
       <div className="w-[180px] sm:w-[220px] md:w-[260px] lg:w-[290px] min-h-screen bg-[#002d62] flex flex-col sticky top-0">
         {/* Norman PD Logo at the top */}
         <div className="flex justify-center pt-8 pb-8">
-          <Link href="/">
+          <Link href="/records">
             <Image src={normanPDLogo} alt="logo" width={180} height={180} />
           </Link>
         </div>
@@ -47,10 +37,9 @@ const Navbar = () => {
         {/* Navigation Links */}
         <div className="flex flex-col gap-8 items-center px-6">
           <Link
-            href="/"
-            onClick={() => handleClick("Evaluate")}
+            href="/evaluate"
             className={`${
-              isHydrated && pageTitle === "Evaluate"
+              activePage === "Evaluate"
                 ? "text-[#002d62] bg-white"
                 : "text-white"
             } font-roboto font-bold text-2xl rounded-[10px] px-6 py-3 flex items-center gap-4 w-full`}
@@ -58,7 +47,7 @@ const Navbar = () => {
             <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
               <Image
                 src={
-                  isHydrated && pageTitle === "Evaluate"
+                  activePage === "Evaluate"
                     ? evaluateIconBlack
                     : evaluateIconWhite
                 }
@@ -72,9 +61,8 @@ const Navbar = () => {
 
           <Link
             href="/records"
-            onClick={() => handleClick("Records")}
             className={`${
-              isHydrated && pageTitle === "Records"
+              activePage === "Records"
                 ? "text-[#002d62] bg-white"
                 : "text-white"
             } font-roboto font-bold text-2xl rounded-[10px] px-6 py-3 flex items-center gap-4 w-full`}
@@ -82,7 +70,7 @@ const Navbar = () => {
             <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
               <Image
                 src={
-                  isHydrated && pageTitle === "Records"
+                  activePage === "Records"
                     ? recordsIconBlack
                     : recordsIconWhite
                 }
@@ -96,9 +84,8 @@ const Navbar = () => {
 
           <Link
             href="/help"
-            onClick={() => handleClick("Help")}
             className={`${
-              isHydrated && pageTitle === "Help"
+              activePage === "Help"
                 ? "text-[#002d62] bg-white"
                 : "text-white"
             } font-roboto font-bold text-2xl rounded-[10px] px-6 py-3 flex items-center gap-4 w-full`}
@@ -106,7 +93,7 @@ const Navbar = () => {
             <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
               <Image
                 src={
-                  isHydrated && pageTitle === "Help"
+                  activePage === "Help"
                     ? helpIconBlack
                     : helpIconWhite
                 }

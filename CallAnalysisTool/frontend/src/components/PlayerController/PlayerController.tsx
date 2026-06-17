@@ -1,143 +1,142 @@
 "use client";
-import styles from "./PlayerController.module.css";
 import { AudioPlayer } from "../AudioPlayer/AudioPlayer";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from "react";
 import { TranscriptPlayer } from "../TranscriptPlayer/TranscriptPlayer";
+import {
+  buildBackendFileUrl,
+  fetchBackendFile,
+  putBackendFile,
+} from "@/lib/api";
 
-interface PlayerControllerProps {
-  transcriptionId?: string;
+interface TranscriptSegment {
+  speaker?: string;
+  text?: string;
+  start: number;
+  end: number;
 }
 
-export default function PlayerController({
-  transcriptionId,
-}: PlayerControllerProps) {
+interface TranscriptData {
+  segments?: TranscriptSegment[];
+}
+
+interface PlayerControllerProps {
+  transcriptFile?: string;
+  audioFile?: string;
+  editable?: boolean;
+  dispatcherName?: string;
+}
+
+export interface PlayerControllerHandle {
+  saveTranscriptChanges: () => Promise<boolean>;
+  getTranscriptData: () => TranscriptData | null;
+}
+
+const PlayerController = forwardRef<PlayerControllerHandle, PlayerControllerProps>(function PlayerController({
+  transcriptFile,
+  audioFile,
+  editable = false,
+  dispatcherName,
+}: PlayerControllerProps, ref) {
   // states
   const [fileName, setFileName] = useState("N/A");
   const [fileURL, setFileURL] = useState<string | null>(null);
-  const [transcription, setTranscription] = useState("");
+  const [transcription, setTranscription] = useState<TranscriptData | null>(
+    null
+  );
+  const [editableTranscription, setEditableTranscription] = useState<TranscriptData | null>(
+    null
+  );
   const [currentTime, setCurrentTime] = useState(0);
   const [transcriptionLoaded, setTranscriptionLoaded] = useState(false);
 
-  // Load transcription when transcriptionId is provided
+  // Load exact backend record files when provided
   useEffect(() => {
-    if (transcriptionId) {
-      // Reset state when loading new transcription
-      setTranscriptionLoaded(false);
-      setTranscription("");
-
-      // Fetch transcription from the backend API
-      fetch(`http://localhost:5001/api/transcriptions/${transcriptionId}`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to fetch transcription`);
-          }
-          return response.json();
-        })
-        .then((data) => {
-          if (data.success && data.data) {
-            setTranscription(data.data);
-            setTranscriptionLoaded(true);
-            if (data.audio_file) {
-              setFileURL(`http://localhost:5001/api/output/${data.audio_file}`);
-              const audioFileName =
-                data.audio_file.split("/").pop() || data.filename;
-              if (audioFileName.endsWith(".json")) {
-                const audioFileFromData = data.data.audio_file;
-                if (audioFileFromData) {
-                  setFileName(
-                    audioFileFromData.split("/").pop() ||
-                      audioFileName.replace(".json", ".wav")
-                  );
-                } else {
-                  setFileName(audioFileName.replace(".json", ".wav"));
-                }
-              } else {
-                setFileName(audioFileName);
-              }
-            } else if (data.filename) {
-              // Fallback: use filename but ensure it's not .json
-              const name = data.filename.endsWith(".json")
-                ? data.filename.replace(".json", ".wav")
-                : data.filename;
-              setFileName(name);
-            }
-          }
-        })
-        .catch((error) => {
-          console.error("Error loading transcription:", error);
-          setTranscriptionLoaded(false);
-        });
+    if (!transcriptFile) {
+      return;
     }
-  }, [transcriptionId]);
 
-  // handlers
-  const handleGetFile = (name: string) => {
-    setFileName(name);
-    setTranscriptionLoaded(false); // Reset when manually selecting a file
-  };
-
-  const handleGetURL = (url: string) => {
-    setFileURL(url);
-  };
-
-  // extracting dispatcher name from file name
-  const match = fileName.match(/.*_(.+)\.[^.]+$/);
-  const dispatcherName = match ? match[1] : "N/A";
-
-  // sends transcription data to transcript component (only for manual file selection)
-  useEffect(() => {
-    // Skip if transcription was already loaded from API or if no file selected
-    if (transcriptionLoaded || !fileName || fileName === "N/A") return;
-
-    // Also skip if fileName is a JSON file (should only process audio files)
-    if (fileName.endsWith(".json")) return;
-
-    // reset current time
+    setTranscriptionLoaded(false);
+    setTranscription(null);
     setCurrentTime(0);
 
-    // converting audio file name to json
-    const baseName = fileName.replace(/\.[^/.]+$/, "");
-    const transcriptUrl = `/transcripts/${baseName}.json`;
-
-    fetch(transcriptUrl)
-      .then((response) => {
-        if (!response.ok) {
-          // Don't throw - just log and return
-          console.warn(
-            `Transcript not found for ${fileName} at ${transcriptUrl}`
-          );
-          return null;
-        }
-        return response.json();
-      })
+    fetchBackendFile<TranscriptData>(transcriptFile)
       .then((data) => {
-        if (data) {
-          setTranscription(data);
-        }
+        setTranscription(data);
+        setEditableTranscription(data);
+        setTranscriptionLoaded(true);
+        setFileName(audioFile || transcriptFile);
+        setFileURL(audioFile ? buildBackendFileUrl(audioFile) : null);
       })
       .catch((error) => {
-        // Catch any errors and log them instead of crashing
-        console.error("Error fetching transcript:", error);
+        console.error("Error loading transcription:", error);
+        setEditableTranscription(null);
+        setTranscriptionLoaded(false);
       });
-  }, [fileName, transcriptionLoaded]); // Added transcriptionLoaded to dependencies
+  }, [audioFile, transcriptFile]);
+
+  const resolvedDispatcherName =
+    dispatcherName ||
+    transcriptFile?.split("_")[0] ||
+    audioFile?.split("_")[0] ||
+    fileName.split("_")[0];
+
+  useEffect(() => {
+    if (transcriptionLoaded || !fileName || fileName === "N/A") return;
+    if (fileName.endsWith(".json")) return;
+    setCurrentTime(0);
+  }, [fileName, transcriptionLoaded]);
+
+  const handleEditSegment = (index: number, speaker: string, text: string) => {
+    setEditableTranscription((current) => {
+      if (!current?.segments) {
+        return current;
+      }
+
+      return {
+        ...current,
+        segments: current.segments.map((segment, segmentIndex) =>
+          segmentIndex === index ? { ...segment, speaker, text } : segment
+        ),
+      };
+    });
+  };
+
+  const saveTranscriptChanges = useCallback(async () => {
+    if (!editable || !transcriptFile || !editableTranscription) {
+      return false;
+    }
+
+    try {
+      await putBackendFile(transcriptFile, editableTranscription);
+      const refreshed = await fetchBackendFile<TranscriptData>(transcriptFile);
+      setTranscription(refreshed);
+      setEditableTranscription(refreshed);
+      setCurrentTime(0);
+      return true;
+    } catch (error) {
+      console.error("Error saving transcription:", error);
+      return false;
+    }
+  }, [editable, editableTranscription, transcriptFile]);
+
+  useImperativeHandle(ref, () => ({
+    saveTranscriptChanges,
+    getTranscriptData: () => editableTranscription || transcription,
+  }), [editableTranscription, saveTranscriptChanges, transcription]);
 
   return (
     <>
-      <div className={styles.presentation_header}>
-        <p>
-          <strong>Dispatcher: </strong>
-          {dispatcherName}
-        </p>
-        <p>
-          <strong>Audio File: </strong>
-          {fileName}
-        </p>
-      </div>
       <TranscriptPlayer
-        transcriptData={transcription}
+        transcriptData={
+          editable ? editableTranscription || transcription || undefined : transcription || undefined
+        }
         currentTime={currentTime}
+        onEditSegment={editable ? handleEditSegment : undefined}
+        dispatcherName={resolvedDispatcherName}
       />
       <AudioPlayer path={fileURL || undefined} onProgress={setCurrentTime} />
     </>
   );
-}
+});
+
+export default PlayerController;
